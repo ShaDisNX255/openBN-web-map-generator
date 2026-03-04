@@ -5,8 +5,7 @@
   "main": "render-map.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node --max-old-space-size=768 server.js 5000"
-    //"start": "node server.js"
+    "start": "node --max-old-space-size=768 server.js 5001"
   },
   "author": "",
   "license": "ISC",

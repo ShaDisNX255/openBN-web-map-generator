@@ -3,11 +3,14 @@ const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 puppeteer.use(StealthPlugin())
 
-//const goto_page_options = {
-//    timeout:30000,
-//    waitUntil:"networkidle2"
-//}
+const goto_page_options = {
+    timeout:20000,
+    waitUntil:"domcontentloaded"
+}
 
+async function scraper(url){
+    //console.log('launching browser')
+//    const browser = await puppeteer.launch();
 const browser = await puppeteer.launch({
   executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
   args: [
@@ -16,10 +19,6 @@ const browser = await puppeteer.launch({
     "--disable-dev-shm-usage",
   ],
 });
-
-async function scraper(url){
-    //console.log('launching browser')
-    const browser = await puppeteer.launch();
     //console.log('opening new page')
     const page = await browser.newPage();
 await page.setRequestInterception(true);

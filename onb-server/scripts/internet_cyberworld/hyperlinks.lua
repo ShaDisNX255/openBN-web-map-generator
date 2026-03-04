@@ -209,7 +209,7 @@ end
 function generate_linked_map(link, text)
     return async(function()
         print('generating '..link)
-        local url = "http://127.0.0.1:5000"
+        local url = "http://127.0.0.1:5001"
         local headers = {}
         headers["Content-Type"] = "application/json"
         local body = {

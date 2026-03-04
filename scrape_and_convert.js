@@ -155,13 +155,15 @@ async function parse_feature_attributes(feature_collection,node){
 }
 
 async function scrape(url, outputPath) {
-let result = cull_unwanted_nodes(
-  document,
-  tag_blacklist,
-  minimum_importance,
-  minimum_children,
-  maximum_total_importance // ignored by the current helper (extra args ok)
-);
+  let document = await scraper(url);
+
+  let result = cull_unwanted_nodes(
+    document,
+    tag_blacklist,
+    minimum_importance,
+    minimum_children,
+    maximum_total_importance
+  );
 
 if (result && typeof result === "object" && "document" in result) {
   while ((result.nodes_removed || 0) > 100) {
