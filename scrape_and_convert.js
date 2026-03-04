@@ -155,13 +155,36 @@ async function parse_feature_attributes(feature_collection,node){
 }
 
 async function scrape(url, outputPath) {
-    let document = await scraper(url)
-    let result = cull_unwanted_nodes(document,tag_blacklist,minimum_importance,minimum_children,maximum_total_importance)
-    while(result.nodes_removed > 100){
-        console.log(`nodes removed = ${result.nodes_removed}`)
-        result = cull_unwanted_nodes(result.document,tag_blacklist,minimum_importance,minimum_children,maximum_total_importance)
-    }
-    document = result.document
+let result = cull_unwanted_nodes(
+  document,
+  tag_blacklist,
+  minimum_importance,
+  minimum_children,
+  maximum_total_importance // ignored by the current helper (extra args ok)
+);
+
+if (result && typeof result === "object" && "document" in result) {
+  while ((result.nodes_removed || 0) > 100) {
+    console.log(`nodes removed = ${result.nodes_removed}`);
+    result = cull_unwanted_nodes(
+      result.document,
+      tag_blacklist,
+      minimum_importance,
+      minimum_children,
+      maximum_total_importance
+    );
+  }
+  document = result.document;
+} else {
+  document = result;
+}
+//    let document = await scraper(url)
+//    let result = cull_unwanted_nodes(document,tag_blacklist,minimum_importance,minimum_children,maximum_total_importance)
+//    while(result.nodes_removed > 100){
+//        console.log(`nodes removed = ${result.nodes_removed}`)
+//        result = cull_unwanted_nodes(result.document,tag_blacklist,minimum_importance,minimum_children,maximum_total_importance)
+//    }
+//    document = result.document
 
     //expected output
     let example = {

@@ -7,12 +7,13 @@ const { resolve } = require('path')
 const process = require('process')
 
 const app = express()
+let generateQueue = Promise.resolve();
 //For parsing json bodies
 app.use(express.json())
 //Serve home page
 app.use(express.static('home-page'))
 
-const web_server_port = parseInt(process.argv[2]) || 3000
+const web_server_port = parseInt(process.argv[2]) || 5000
 const net_square_url = `http://localhost:${web_server_port}`//`http://localhost:${web_server_port}`
 const default_area_path = `areas/default.tmx`
 
@@ -35,8 +36,16 @@ app.post('/', async function (req, res) {
             response = { status: 'ok', area_id: 'default', area_path: 'areas/default.tmx', fresh: false, assets: [] }
         } else {
             try {
-                let generate_promise = generate(req?.body?.link)
-                let { area_id, area_path, assets, fresh } = await timeoutPromise(generate_promise,60000)
+              const link = req.body.link; // you're already inside: if (req?.body?.link)
+
+              const job = generateQueue.then(() =>
+                timeoutPromise(generate(link), 60000)
+              );
+
+              // keep the queue alive even if a job fails
+              generateQueue = job.catch(() => {});
+
+              let { area_id, area_path, assets, fresh } = await job;
                 response = { status: 'ok', area_id, area_path, fresh, assets }
             } catch (e) {
                 console.error(e)

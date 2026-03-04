@@ -10,7 +10,7 @@ end
 
 local websites_being_generated = {}
 local website_generation_queue = {}
-local max_generated_at_time = 10
+local max_generated_at_time = 1
 
 local lib = {}
 
@@ -209,20 +209,29 @@ end
 function generate_linked_map(link, text)
     return async(function()
         print('generating '..link)
-        local url = "http://localhost:3000"
+        local url = "http://127.0.0.1:5000"
         local headers = {}
         headers["Content-Type"] = "application/json"
         local body = {
             link = link,
             text = text
         }
-        local response = await(Async.request(url, {
-            method = "POST",
-            headers = headers,
-            body = json.encode(body)
-        }))
-        local data = json.decode(response.body)
-        return data
+local response = await(Async.request(url, { method = "POST", headers = headers, body = json.encode(body) }))
+
+if not response or not response.body then
+  print("[hyperlinks] failed to connect to generator at " .. url)
+  return { status = "error" }
+end
+
+local data = json.decode(response.body)
+return data
+--        local response = await(Async.request(url, {
+--            method = "POST",
+--            headers = headers,
+--            body = json.encode(body)
+--        }))
+--        local data = json.decode(response.body)
+--        return data
     end)
 end
 

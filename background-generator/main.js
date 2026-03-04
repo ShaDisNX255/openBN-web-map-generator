@@ -12,7 +12,8 @@ const Random = new RNG(60902583)
 async function downloadFavicon(linkToWebsite, output_path) {
     let web_address = url.parse(linkToWebsite)
     let favicon_address = web_address.hostname
-    let faviconToPNGApiAddr = `https://www.google.com/s2/favicons?domain=${favicon_address}`
+    let faviconToPNGApiAddr = `https://www.google.com/s2/favicons?domain=${favicon_address}&sz=64`
+//  let faviconToPNGApiAddr = `https://www.google.com/s2/favicons?domain=${favicon_address}`
     await downloadFile(faviconToPNGApiAddr, output_path)
 }
 
