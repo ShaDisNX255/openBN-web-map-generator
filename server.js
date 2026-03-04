@@ -13,7 +13,7 @@ app.use(express.json())
 //Serve home page
 app.use(express.static('home-page'))
 
-const web_server_port = parseInt(process.argv[2]) || 5000
+const web_server_port = parseInt(process.argv[2]) || 5001
 const net_square_url = `http://localhost:${web_server_port}`//`http://localhost:${web_server_port}`
 const default_area_path = `areas/default.tmx`
 

@@ -3,6 +3,23 @@ const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 puppeteer.use(StealthPlugin())
 
+let _browserPromise = null;
+
+async function getBrowser() {
+  if (_browserPromise) return _browserPromise;
+
+  _browserPromise = puppeteer.launch({
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+    ],
+  });
+
+  return _browserPromise;
+}
+
 const goto_page_options = {
     timeout:20000,
     waitUntil:"domcontentloaded"
@@ -11,14 +28,7 @@ const goto_page_options = {
 async function scraper(url){
     //console.log('launching browser')
 //    const browser = await puppeteer.launch();
-const browser = await puppeteer.launch({
-  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-  args: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage",
-  ],
-});
+const browser = await getBrowser();
     //console.log('opening new page')
     const page = await browser.newPage();
 await page.setRequestInterception(true);
@@ -107,7 +117,7 @@ page.on("request", (req) => {
         return first_node
     });
     //console.log('closing browser')
-    await browser.close();
+    await page.close();
     //console.log('scraping done')
     return result
 }

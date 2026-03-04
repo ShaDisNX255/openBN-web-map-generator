@@ -13,7 +13,7 @@ async function downloadFavicon(linkToWebsite, output_path) {
     let web_address = url.parse(linkToWebsite)
     let favicon_address = web_address.hostname
     let faviconToPNGApiAddr = `https://www.google.com/s2/favicons?domain=${favicon_address}&sz=64`
-//  let faviconToPNGApiAddr = `https://www.google.com/s2/favicons?domain=${favicon_address}`
+//    let faviconToPNGApiAddr = `https://www.google.com/s2/favicons?domain=${favicon_address}`
     await downloadFile(faviconToPNGApiAddr, output_path)
 }
 
@@ -81,7 +81,7 @@ async function generateAnimationPNG(converted_favicon_path, output_path, preview
 
     let parameters = {
         spacing: Random.Integer(0, 1) * 16,
-        faviconScaling: 1,
+        faviconScaling: 0.25,
     }
 
     let animation = new TweenedAnimation(canvas, favicon, parameters)
