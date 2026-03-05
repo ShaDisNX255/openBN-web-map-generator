@@ -23,7 +23,7 @@ const songs = [
     'network-space.ogg',
 ]
 
-async function generate(site_url, isHomePage = false) {
+async function generate(site_url, isHomePage = false, options = {}) {
     //URL of website to scrape
     console.log('generating',site_url,'...')
     let hashed_url = crypto.createHash('sha256').update(site_url, 'utf8').digest('hex')
@@ -53,14 +53,28 @@ async function generate(site_url, isHomePage = false) {
 
     //Check if map already exists
     let map_already_exists = fs.existsSync(path_generated_map)
-    if (map_already_exists) {
-        let result = {
-            area_path: relative_server_map_path,
-            area_id: hashed_url,
-            fresh: false,
-        }
-        return result
-    }
+        if (map_already_exists && !options.force) {
+  // If we only want to crawl links (daily indexing), scrape but don't regenerate map/assets
+  if (options.collectLinks) {
+    const scraped_website = await scrape(site_url);
+    const links = (scraped_website?.features?.links || [])
+      .map(l => l.href)
+      .filter(Boolean);
+
+    return {
+      area_path: relative_server_map_path,
+      area_id: hashed_url,
+      fresh: false,
+      links,
+    };
+  }
+
+  return {
+    area_path: relative_server_map_path,
+    area_id: hashed_url,
+    fresh: false,
+  };
+}
 
     //Properties which will be included in the map.tmx
     let server_domain_asset_path = replaceBackslashes(path_domain_assets).replace('onb-server/','')
@@ -79,6 +93,9 @@ async function generate(site_url, isHomePage = false) {
     let netAreaGenerator = new NetAreaGenerator()
 
     let scraped_website = await scrape(site_url)
+    const discovered_links = (scraped_website?.features?.links || [])
+      .map(l => l.href)
+      .filter(Boolean);
     console.log('scraped site',scraped_website)
 
     let color_scheme = random.color_scheme(10)
@@ -126,6 +143,7 @@ async function generate(site_url, isHomePage = false) {
         area_id: hashed_url,
         assets: tilesets,
         fresh: true,
+        links: options.collectLinks ? discovered_links : undefined,
     }
     return result
 }
