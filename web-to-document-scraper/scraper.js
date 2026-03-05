@@ -9,14 +9,16 @@ async function getBrowser() {
   if (_browserPromise) return _browserPromise;
 
   _browserPromise = puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-    ],
-  });
-
+    executablePath:
+      process.env.PUPPETEER_EXECUTABLE_PATH ||
+      process.env.CHROMIUM_PATH ||
+      "/usr/bin/chromium",
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+        ],
+    });
   return _browserPromise;
 }
 
@@ -40,7 +42,24 @@ page.on("request", (req) => {
     //console.log('enabling js')
     await page.setJavaScriptEnabled(true);
     //console.log('going to url')
-    await page.goto(url,goto_page_options);
+    //await page.goto(url,goto_page_options);
+let navigationTimedOut = false;
+
+try {
+  await page.goto(url, goto_page_options);
+} catch (err) {
+  if (err && err.name === "TimeoutError") {
+    navigationTimedOut = true;
+    console.log(`[scraper] timeout loading ${url}, continuing with partial page`);
+  } else {
+    await page.close().catch(() => {});
+    throw err;
+  }
+}
+if (navigationTimedOut) {
+  // tiny pause so late-arriving DOM has a moment to settle
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}
     //console.log('evaluating script')
     const result = await page.evaluate(() => {
         function record_attributes(node,element,attribute_names,importance){
