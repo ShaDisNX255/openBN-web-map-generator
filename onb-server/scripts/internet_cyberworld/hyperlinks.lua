@@ -10,7 +10,7 @@ end
 
 local websites_being_generated = {}
 local website_generation_queue = {}
-local max_generated_at_time = 10
+local max_generated_at_time = 7
 
 local lib = {}
 
@@ -209,7 +209,7 @@ end
 function generate_linked_map(link, text)
     return async(function()
         print('generating '..link)
-        local url = "http://localhost:3000"
+        local url = "http://localhost:4000"
         local headers = {}
         headers["Content-Type"] = "application/json"
         local body = {

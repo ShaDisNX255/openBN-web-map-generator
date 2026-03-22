@@ -1,6 +1,6 @@
 {
     "listservers":{
-        "main":"https://www.keristero.xyz/server_list/"
+        "main":"http://onb.keristero.com/server_list/"
     },
     "advertisements":[
         {
@@ -8,7 +8,7 @@
             "name":"WWW Server",
             "description":"Experimental world wide web exploration server, maps are generated from real website html",
             "tags":["demo"],
-            "address":"keristero.xyz:8767",
+            "address":"64.23.226.84:8765",
             "data":"",
             "icon":"www.png",
             "color":"rgb(50,200,50)",

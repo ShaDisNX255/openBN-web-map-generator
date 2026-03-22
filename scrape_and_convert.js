@@ -156,12 +156,32 @@ async function parse_feature_attributes(feature_collection,node){
 
 async function scrape(url, outputPath) {
     let document = await scraper(url)
-    let result = cull_unwanted_nodes(document,tag_blacklist,minimum_importance,minimum_children,maximum_total_importance)
-    while(result.nodes_removed > 100){
-        console.log(`nodes removed = ${result.nodes_removed}`)
-        result = cull_unwanted_nodes(result.document,tag_blacklist,minimum_importance,minimum_children,maximum_total_importance)
-    }
-    document = result.document
+let result = cull_unwanted_nodes(
+  document,
+  tag_blacklist,
+  minimum_importance,
+  minimum_children,
+  maximum_total_importance // extra arg is fine if helper ignores it
+)
+
+// Compat:
+// - old helper returned { document, nodes_removed }
+// - new helper returns document directly
+if (result && typeof result === "object" && "document" in result) {
+  while ((result.nodes_removed || 0) > 100) {
+    console.log(`nodes removed = ${result.nodes_removed}`)
+    result = cull_unwanted_nodes(
+      result.document,
+      tag_blacklist,
+      minimum_importance,
+      minimum_children,
+      maximum_total_importance
+    )
+  }
+  document = result.document
+} else {
+  document = result
+}
 
     //expected output
     let example = {
@@ -185,11 +205,13 @@ async function scrape(url, outputPath) {
     let converted_document = {}
     let queue = [document]
     duplicate_links = {}
-    while(queue.length > 0){
-        let node = queue.shift()
-        for(let child of node.children){
-            queue.push(child)
-        }
+while (queue.length > 0) {
+  const node = queue.shift()
+  if (!node || !node.children) continue
+
+  for (const child of node.children) {
+    if (child) queue.push(child)
+  }
         if(node.parent){
             let feature_collection_name = detect_feature_type(node)
             if(feature_collection_name != 'children'){
