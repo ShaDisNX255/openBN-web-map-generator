@@ -5,6 +5,8 @@ const { asyncSleep } = require('./helpers')
 const { unlink } = require('fs/promises')
 const { resolve } = require('path')
 const process = require('process')
+const { fork } = require('child_process');
+const path = require('path');
 
 const app = express()
 let generateQueue = Promise.resolve();
@@ -17,13 +19,68 @@ const web_server_port = parseInt(process.argv[2]) || 4000
 const net_square_url = `http://localhost:${web_server_port}`//`http://localhost:${web_server_port}`
 const default_area_path = `areas/default.tmx`
 
-function timeoutPromise(promise, milliseconds) {
-    return Promise.race([
-        promise,
-        new Promise((_, reject) => {
-            setTimeout(() => reject(new Error(`Operation timed out after ${milliseconds}ms`)), milliseconds);
-        })
-    ]);
+function runGenerateInChild(link, timeoutMs, isHomePage = false) {
+  return new Promise((resolve, reject) => {
+    const child = fork(
+      path.resolve(__dirname, 'run_generate_job.js'),
+      [link, String(isHomePage)],
+      {
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+      }
+    );
+
+    let settled = false;
+
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+
+    child.stdout?.on('data', (chunk) => {
+      process.stdout.write(`[job ${child.pid}] ${chunk}`);
+    });
+
+    child.stderr?.on('data', (chunk) => {
+      process.stderr.write(`[job ${child.pid}] ${chunk}`);
+    });
+
+    child.on('message', (msg) => {
+      if (msg?.ok) {
+        finish(resolve, msg.result);
+      } else {
+        finish(reject, new Error(msg?.error || 'Unknown child job error'));
+      }
+    });
+
+    child.on('error', (err) => {
+      finish(reject, err);
+    });
+
+    child.on('exit', (code, signal) => {
+      if (!settled) {
+        finish(
+          reject,
+          new Error(`Generate worker exited before replying (code=${code}, signal=${signal})`)
+        );
+      }
+    });
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+
+      child.kill('SIGTERM');
+
+      setTimeout(() => {
+        if (!settled) {
+          child.kill('SIGKILL');
+        }
+      }, 5000);
+
+      finish(reject, new Error(`Generation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
 }
 
 //Generate maps on demand
@@ -39,7 +96,7 @@ app.post('/', async function (req, res) {
 const link = req.body.link;
 
 const job = generateQueue.then(() =>
-  timeoutPromise(generate(link), 60000)
+  runGenerateInChild(link, 60000, false)
 );
 
 // keep the queue alive even if this job fails
@@ -68,7 +125,7 @@ async function test() {
     } catch (e) {
         console.log('cant unlink ', resolve('onb-server/' + default_area_path))
     }
-    await generate(net_square_url, true)
+    await runGenerateInChild(net_square_url, 60000, true)
 }
 
 test()

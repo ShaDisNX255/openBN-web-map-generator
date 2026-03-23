@@ -10,7 +10,7 @@ end
 
 local websites_being_generated = {}
 local website_generation_queue = {}
-local max_generated_at_time = 7
+local max_generated_at_time = 15
 
 local lib = {}
 
