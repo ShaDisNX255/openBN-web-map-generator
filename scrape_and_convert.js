@@ -17,6 +17,7 @@ const maximum_text_length = 500
 const tag_blacklist = ["SCRIPT","STYLE","SVG"]
 
 var duplicate_links = {}
+let current_page_url_for_link_filter = null
 
 //collections and the attributes which are sorted into them
 //the order of this collection is also the priority
@@ -110,12 +111,6 @@ async function parse_feature_attributes(feature_collection,node){
                 feature["text"] = url.hostname
             }
         }
-        //if the description is too long, shorten it
-        let max_length = 40
-        if(feature["text"].length > max_length){
-            feature["text"] = feature["text"].slice(feature["text"].length-max_length,max_length)
-        }
-
 
         //delete conditions
         if(!url){
@@ -125,7 +120,91 @@ async function parse_feature_attributes(feature_collection,node){
                 feature.should_be_deleted = true
             }
         }
-        let href_hash = `${fastHash(feature.href)}${feature.href.length}`
+
+        // Remove same-page anchor links like #bodyContent / #cite_note / etc.
+        if(!feature.should_be_deleted && url && current_page_url_for_link_filter){
+            try{
+                let currentUrl = new URL(current_page_url_for_link_filter)
+
+                let samePage =
+                    url.origin === currentUrl.origin &&
+                    url.pathname === currentUrl.pathname &&
+                    url.search === currentUrl.search
+
+                if(samePage && url.hash){
+                    feature.should_be_deleted = true
+                }
+            }catch(e){
+                // ignore filter errors
+            }
+        }
+
+        // Wikipedia-specific junk link cleanup
+        if(!feature.should_be_deleted && url){
+            try{
+                const host = url.hostname || ''
+                const path = url.pathname || ''
+                const search = url.search || ''
+
+                if (/(^|\.)wikipedia\.org$/i.test(host)) {
+                    const blockedWikiPrefixes = [
+                        '/wiki/Wikipedia:',
+                        '/wiki/Help:',
+                        '/wiki/Special:',
+                        '/wiki/Talk:',
+                        '/wiki/Portal:',
+                        '/wiki/Category:',
+                        '/wiki/File:',
+                        '/wiki/Template:',
+                        '/wiki/Template_talk:',
+                        '/wiki/Module:',
+                        '/wiki/MediaWiki:'
+                    ]
+
+                    if (blockedWikiPrefixes.some(prefix => path.startsWith(prefix))) {
+                        feature.should_be_deleted = true
+                    }
+
+                    if (path === '/w/index.php') {
+                        feature.should_be_deleted = true
+                    }
+
+                    if (/action=edit|action=history|veaction=edit|mobileaction=/.test(search)) {
+                        feature.should_be_deleted = true
+                    }
+                }
+
+                if (
+                    /(^|\.)wikimedia\.org$/i.test(host) ||
+                    /(^|\.)wikimediafoundation\.org$/i.test(host) ||
+                    /(^|\.)mediawiki\.org$/i.test(host) ||
+                    /(^|\.)developer\.wikimedia\.org$/i.test(host) ||
+                    /(^|\.)donate\.wikimedia\.org$/i.test(host)
+                ) {
+                    feature.should_be_deleted = true
+                }
+            }catch(e){
+                // ignore wikipedia filter errors
+            }
+        }
+
+        if(feature["text"]){
+            let max_length = 40
+            if(feature["text"].length > max_length){
+                feature["text"] = feature["text"].slice(0, max_length)
+            }
+        }
+
+        let normalized_href_for_dupes = feature.href
+        if(url){
+            try{
+                let dedupeUrl = new URL(url.toString())
+                dedupeUrl.hash = ''
+                normalized_href_for_dupes = dedupeUrl.toString()
+            }catch(e){}
+        }
+
+        let href_hash = `${fastHash(normalized_href_for_dupes)}${normalized_href_for_dupes.length}`
         if(duplicate_links[href_hash]){
             //delete any links that are duplicates
             feature.should_be_deleted = true
@@ -155,6 +234,7 @@ async function parse_feature_attributes(feature_collection,node){
 }
 
 async function scrape(url, outputPath) {
+    current_page_url_for_link_filter = url
     let document = await scraper(url)
 let result = cull_unwanted_nodes(
   document,
@@ -236,7 +316,7 @@ while (queue.length > 0) {
             converted_document = feature
         }
     }
-
+    current_page_url_for_link_filter = null
     //save converted document
     //await writeFile(outputPath, JSON.stringify(converted_document, null, 1),{ overwrite: true })
     return converted_document

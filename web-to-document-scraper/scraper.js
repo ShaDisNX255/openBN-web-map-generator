@@ -80,7 +80,22 @@ try {
             return text.trim()//remove leading and trailing spaces
         }
         let queue = []
-        let first_node = {element:document,children:[]}
+
+        let rootElement = document
+        try {
+            const host = window.location.hostname
+            if (/(^|\.)wikipedia\.org$/i.test(host)) {
+                rootElement =
+                    document.querySelector('#mw-content-text') ||
+                    document.querySelector('#bodyContent') ||
+                    document.querySelector('main') ||
+                    document
+            }
+        } catch (e) {
+            rootElement = document
+        }
+
+        let first_node = {element:rootElement,children:[]}
         queue.push(first_node)
         while (queue.length > 0) {
             let node = queue.shift()

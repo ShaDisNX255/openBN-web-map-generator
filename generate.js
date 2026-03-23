@@ -26,6 +26,15 @@ const songs = [
 async function generate(site_url, isHomePage = false) {
     //URL of website to scrape
     console.log('generating',site_url,'...')
+
+    try {
+        let normalized_url = new URL(site_url)
+        normalized_url.hash = ''
+        site_url = normalized_url.toString()
+    } catch (e) {
+        // leave site_url alone if URL parsing fails
+    }
+
     let hashed_url = crypto.createHash('sha256').update(site_url, 'utf8').digest('hex')
     let web_address = url.parse(site_url)
     let hostname = web_address.hostname
@@ -77,6 +86,11 @@ async function generate(site_url, isHomePage = false) {
     )}`
 
     let netAreaGenerator = new NetAreaGenerator()
+
+    if (/(^|\.)wikipedia\.org$/i.test(hostname || '')) {
+        netAreaGenerator.maximumNodeDepth = 1
+        console.log(`using wikipedia maximumNodeDepth=${netAreaGenerator.maximumNodeDepth}`)
+    }
 
     let scraped_website = await scrape(site_url)
     console.log('scraped site',scraped_website)

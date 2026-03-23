@@ -63,10 +63,12 @@ class NetAreaGenerator {
         this.maximumPathFindingAttempts = 1 //If pathfinding is failing, raising may help
         this.oneUseConnectors = false //Improves look, but increases failure rate
         this.allowLayerGeneration = true //Allow generation to add new layers as required, can be a bit crazy...
+        this.maximumNodeDepth = Infinity // 0 = root only, 1 = root + direct children, etc.
     }
     async generateNetArea(startingNode, isHomePage) {
         this.isHomePage = isHomePage
         startingNode.isFirstNode = true
+        startingNode._depth = 0
         this.arr_queue = [startingNode]
         console.log(`processing node queue`)
         await this.processNodeQueue()
@@ -187,12 +189,18 @@ class NetAreaGenerator {
         }
     }
     addNodesChildrenToQueue(node) {
+        const currentDepth = Number.isFinite(node?._depth) ? node._depth : 0
+
+        if (currentDepth >= this.maximumNodeDepth) {
+            return
+        }
+
         let children = node?.features?.children
         if (children) {
             children = children.sort((a, b) => {
-                //Sort ascending
-                let childrenA = a?.features?.children?.length
-                let childrenB = b?.features?.children?.length
+                // Sort ascending
+                let childrenA = a?.features?.children?.length ?? 0
+                let childrenB = b?.features?.children?.length ?? 0
                 if (childrenA < childrenB) {
                     return -1
                 }
@@ -201,7 +209,9 @@ class NetAreaGenerator {
                 }
                 return 0
             })
+
             for (let childNode of children) {
+                childNode._depth = currentDepth + 1
                 this.arr_queue.push(childNode)
             }
         }
