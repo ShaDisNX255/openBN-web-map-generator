@@ -5,7 +5,7 @@ const { asyncSleep } = require('./helpers')
 const { unlink } = require('fs/promises')
 const { resolve } = require('path')
 const process = require('process')
-const { fork } = require('child_process');
+const { fork, execFileSync } = require('child_process');
 const path = require('path');
 
 const app = express()
@@ -19,17 +19,79 @@ const web_server_port = parseInt(process.argv[2]) || 4000
 const net_square_url = `http://localhost:${web_server_port}`//`http://localhost:${web_server_port}`
 const default_area_path = `areas/default.tmx`
 
+function pidExists(pid) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function killPidTreeByPid(pid, signal = 'SIGTERM') {
+  if (!pid) return;
+
+  const pkillSignal = signal === 'SIGKILL' ? '-KILL' : '-TERM';
+
+  // Kill detached process group, if there is one.
+  try {
+    process.kill(-pid, signal);
+  } catch (_) {}
+
+  // Kill direct descendants by parent pid.
+  try {
+    execFileSync('pkill', [pkillSignal, '-P', String(pid)], { stdio: 'ignore' });
+  } catch (_) {}
+
+  // Kill the pid itself as fallback.
+  try {
+    process.kill(pid, signal);
+  } catch (_) {}
+}
+
+function killChildTree(child, signal = 'SIGTERM') {
+  killPidTreeByPid(child?.pid, signal);
+}
+
+function waitForProcessGone(pid, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+
+    const poll = () => {
+      if (!pidExists(pid)) {
+        resolve(true);
+        return;
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        resolve(false);
+        return;
+      }
+
+      const t = setTimeout(poll, 200);
+      if (typeof t.unref === 'function') {
+        t.unref();
+      }
+    };
+
+    poll();
+  });
+}
+
 function runGenerateInChild(link, timeoutMs, isHomePage = false) {
   return new Promise((resolve, reject) => {
     const child = fork(
       path.resolve(__dirname, 'run_generate_job.js'),
       [link, String(isHomePage)],
       {
-        stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        detached: process.platform !== 'win32'
       }
     );
 
     let settled = false;
+    let timingOut = false;
 
     const finish = (fn, value) => {
       if (settled) return;
@@ -59,7 +121,8 @@ function runGenerateInChild(link, timeoutMs, isHomePage = false) {
     });
 
     child.on('exit', (code, signal) => {
-      if (!settled) {
+      // If we're already in timeout cleanup, let the timeout path finish.
+      if (!settled && !timingOut) {
         finish(
           reject,
           new Error(`Generate worker exited before replying (code=${code}, signal=${signal})`)
@@ -67,19 +130,27 @@ function runGenerateInChild(link, timeoutMs, isHomePage = false) {
       }
     });
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (settled) return;
 
-      child.kill('SIGTERM');
+      timingOut = true;
 
-      setTimeout(() => {
-        if (!settled) {
-          child.kill('SIGKILL');
-        }
-      }, 5000);
+      // First ask the worker to stop cleanly.
+      killChildTree(child, 'SIGTERM');
+      let gone = await waitForProcessGone(child.pid, 2000);
+
+      // If it is still around, hard kill the whole tree.
+      if (!gone) {
+        killChildTree(child, 'SIGKILL');
+        gone = await waitForProcessGone(child.pid, 3000);
+      }
 
       finish(reject, new Error(`Generation timed out after ${timeoutMs}ms`));
     }, timeoutMs);
+
+    if (typeof timer.unref === 'function') {
+      timer.unref();
+    }
   });
 }
 

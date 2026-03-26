@@ -54,6 +54,12 @@ class HomeWarpFeature extends Feature {
     constructor(x, y, z, feature, properties) {
         super(x, y, z, properties)
         this.type = 'Home Warp'
+
+        const newProperties = {
+            "Incoming Data": "return_to_index",
+            "Warp In": "true",
+        }
+        Object.assign(this.properties, newProperties)
     }
     async onExport({ exporter, newObject }) {
         //Called by tmx exporter when this feature is exported
@@ -68,6 +74,11 @@ class BackLinkFeature extends HomeWarpFeature {
     constructor(x, y, z, feature, properties) {
         super(x, y, z, feature, properties)
         this.type = 'Custom Warp'
+
+        // Back links should NOT register as ezwarps "return_to_index" landings
+        delete this.properties["Incoming Data"]
+        delete this.properties["Warp In"]
+
         let newProperties = {
             is_back_link: 1
         }

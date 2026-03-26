@@ -87,9 +87,18 @@ async function generate(site_url, isHomePage = false) {
 
     let netAreaGenerator = new NetAreaGenerator()
 
-    if (/(^|\.)wikipedia\.org$/i.test(hostname || '')) {
-        netAreaGenerator.maximumNodeDepth = 1
-        console.log(`using wikipedia maximumNodeDepth=${netAreaGenerator.maximumNodeDepth}`)
+    const host = hostname || ''
+    const domainDepthRules = [
+        { pattern: /(^|\.)wikipedia\.org$/i, depth: 2, label: 'wikipedia' },
+        { pattern: /(^|\.)google\.com$/i,    depth: 2, label: 'google' },
+    ]
+
+    for (const rule of domainDepthRules) {
+        if (rule.pattern.test(host)) {
+            netAreaGenerator.maximumNodeDepth = rule.depth
+            console.log(`using ${rule.label} maximumNodeDepth=${netAreaGenerator.maximumNodeDepth}`)
+            break
+        }
     }
 
     let scraped_website = await scrape(site_url)

@@ -1,6 +1,7 @@
 //puppeteer extra with stealth plugin to bypass cloudflare
 const puppeteer = require('puppeteer-extra')
 const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+const { execFileSync } = require('child_process')
 puppeteer.use(StealthPlugin())
 
 const goto_page_options = {
@@ -8,13 +9,86 @@ const goto_page_options = {
   waitUntil: "domcontentloaded"
 }
 
+function pidExists(pid) {
+    if (!pid) return false
+    try {
+        process.kill(pid, 0)
+        return true
+    } catch (_) {
+        return false
+    }
+}
+
+function killPidTreeByPid(pid, signal = 'SIGKILL') {
+    if (!pid) return
+
+    const pkillSignal = signal === 'SIGTERM' ? '-TERM' : '-KILL'
+
+    try {
+        process.kill(-pid, signal)
+    } catch (_) {}
+
+    try {
+        execFileSync('pkill', [pkillSignal, '-P', String(pid)], { stdio: 'ignore' })
+    } catch (_) {}
+
+    try {
+        process.kill(pid, signal)
+    } catch (_) {}
+}
+
 async function scraper(url){
-    //console.log('launching browser')
-const browser = await puppeteer.launch({
-  args: ["--no-sandbox", "--disable-setuid-sandbox"],
-});
-    //console.log('opening new page')
-    const page = await browser.newPage();
+    let browser;
+    let browserPid = null;
+    let emergencyCleanupStarted = false;
+
+    const emergencyBrowserCleanup = () => {
+        if (emergencyCleanupStarted) return;
+        emergencyCleanupStarted = true;
+
+        if (browserPid && pidExists(browserPid)) {
+            killPidTreeByPid(browserPid, 'SIGKILL');
+        }
+    };
+
+    const onTerminate = () => {
+        emergencyBrowserCleanup();
+        process.exit(143);
+    };
+
+    process.once('SIGTERM', onTerminate);
+    process.once('SIGINT', onTerminate);
+
+    try {
+        const useProxy = url.includes('reddit.com') || url.includes('x.com') || url.includes('twitter.com') || url.includes('gamejolt.com');
+        if (useProxy) console.log(`[scraper] routing ${url} through home proxy`);
+
+        browser = await puppeteer.launch({
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            ...(useProxy ? ["--proxy-server=socks5://localhost:1080"] : [])
+          ],
+        });
+
+        browserPid = browser?.process?.()?.pid || null;
+
+        const page = await browser.newPage();
+        await page.setJavaScriptEnabled(true);
+        await page.setDefaultNavigationTimeout(20000);
+        await page.setDefaultTimeout(20000);
+
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const type = request.resourceType();
+            if (type === 'media' || type === 'font') {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
     //console.log('enabling js')
     await page.setJavaScriptEnabled(true);
     //console.log('going to url')
@@ -27,6 +101,34 @@ try {
     throw err;
   }
 }
+
+try {
+  const parsedUrl = new URL(url);
+  const host = parsedUrl.hostname || '';
+  const path = parsedUrl.pathname || '';
+
+  if (/(^|\.)reddit\.com$/i.test(host)) {
+    await page.waitForSelector('shreddit-post, article[data-post-id]', { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(/\/comments\//i.test(path) ? 3500 : 4500);
+
+    // On subreddit listing pages, scroll a bit to encourage more feed posts to render
+    if (/^\/r\/[^/]+\/?$/i.test(path)) {
+      await page.evaluate(async () => {
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        window.scrollTo(0, Math.max(document.body.scrollHeight * 0.4, 800));
+        await sleep(800);
+
+        window.scrollTo(0, Math.max(document.body.scrollHeight * 0.8, 1600));
+        await sleep(1200);
+
+        window.scrollTo(0, 0);
+      });
+
+      await page.waitForTimeout(1500);
+    }
+  }
+} catch (_) {}
     //console.log('evaluating script')
     const result = await page.evaluate(() => {
         function record_attributes(node,element,attribute_names,importance){
@@ -84,7 +186,15 @@ try {
         let rootElement = document
         try {
             const host = window.location.hostname
-            if (/(^|\.)wikipedia\.org$/i.test(host)) {
+            const path = window.location.pathname || ''
+
+            if (/(^|\.)reddit\.com$/i.test(host)) {
+                rootElement =
+                    document.querySelector('main') ||
+                    document.querySelector('shreddit-app') ||
+                    document.body ||
+                    document
+            } else if (/(^|\.)wikipedia\.org$/i.test(host)) {
                 rootElement =
                     document.querySelector('#mw-content-text') ||
                     document.querySelector('#bodyContent') ||
@@ -117,10 +227,21 @@ try {
         }
         return first_node
     });
-    //console.log('closing browser')
-await browser.close();
-    //console.log('scraping done')
-    return result
+        return result
+    } finally {
+        process.removeListener('SIGTERM', onTerminate);
+        process.removeListener('SIGINT', onTerminate);
+
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (_) {}
+        }
+
+        if (browserPid && pidExists(browserPid)) {
+            killPidTreeByPid(browserPid, 'SIGKILL');
+        }
+    }
 }
 
 module.exports = scraper

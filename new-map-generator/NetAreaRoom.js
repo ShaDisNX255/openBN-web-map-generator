@@ -165,7 +165,8 @@ class NetAreaRoom {
         }
 
         if(requirements.ground_features == 0 && requirements.wall_features == 0){
-            if(node?.features?.children.length > 0){
+            const childCount = node?.features?.children?.length ?? 0
+            if(childCount > 0){
                 requirements.stairs = 1
             }
         }
