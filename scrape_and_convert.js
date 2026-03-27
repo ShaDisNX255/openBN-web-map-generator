@@ -18,8 +18,8 @@ const tag_blacklist = ["SCRIPT","STYLE","SVG"]
 const DEFAULT_MAX_LINKS_PER_NODE = 7
 
 const MAX_LINKS_PER_NODE_BY_DOMAIN = [
-    { pattern: /(^|\.)wikipedia\.org$/i, maxLinks: 5 },
-    { pattern: /(^|\.)google\.com$/i, maxLinks: 5 },
+    { pattern: /(^|\.)wikipedia\.org$/i, maxLinks: 4 },
+    { pattern: /(^|\.)google\.com$/i, maxLinks: 4 },
     { pattern: /(^|\.)nintendo\.com$/i, maxLinks: 5 },
     { pattern: /(^|\.)reddit\.com$/i, maxLinks: 13 },
 ]

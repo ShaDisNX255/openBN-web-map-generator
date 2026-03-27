@@ -89,8 +89,8 @@ async function generate(site_url, isHomePage = false) {
 
     const host = hostname || ''
     const domainDepthRules = [
-        { pattern: /(^|\.)wikipedia\.org$/i, depth: 2, label: 'wikipedia' },
-        { pattern: /(^|\.)google\.com$/i,    depth: 2, label: 'google' },
+        { pattern: /(^|\.)wikipedia\.org$/i, depth: 3, label: 'wikipedia' },
+        { pattern: /(^|\.)google\.com$/i,    depth: 3, label: 'google' },
     ]
 
     for (const rule of domainDepthRules) {

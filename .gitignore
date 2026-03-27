@@ -7,3 +7,5 @@ generated
 areas
 domain
 Scriptable-OpenNetBattle-Server
+server.pid
+onb-server/server.pid

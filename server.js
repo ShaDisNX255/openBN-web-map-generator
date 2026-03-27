@@ -10,6 +10,125 @@ const path = require('path');
 
 const app = express()
 let generateQueue = Promise.resolve();
+const MAX_UNIQUE_PENDING_JOBS = 300;
+const JOB_RESULT_TTL_MS = 10 * 60 * 1000;
+
+const jobsByKey = new Map();
+const queuedJobKeys = [];
+let runningJobKey = null;
+
+function normalizeLink(rawLink) {
+  try {
+    const u = new URL(rawLink);
+    u.hash = '';
+    u.hostname = (u.hostname || '').toLowerCase();
+
+    if ((u.protocol === 'http:' && u.port === '80') ||
+        (u.protocol === 'https:' && u.port === '443')) {
+      u.port = '';
+    }
+
+    return u.toString();
+  } catch (_) {
+    return rawLink;
+  }
+}
+
+function pendingJobCount() {
+  return queuedJobKeys.length + (runningJobKey ? 1 : 0);
+}
+
+function getQueuePositionForKey(key) {
+  if (runningJobKey === key) {
+    return 0;
+  }
+
+  const index = queuedJobKeys.indexOf(key);
+  return index === -1 ? null : index + 1;
+}
+
+function scheduleJobRecordCleanup(key) {
+  const record = jobsByKey.get(key);
+  if (!record) return;
+
+  if (record.cleanupTimer) {
+    clearTimeout(record.cleanupTimer);
+  }
+
+  record.cleanupTimer = setTimeout(() => {
+    const latest = jobsByKey.get(key);
+    if (!latest) return;
+
+    if (latest.status === 'done' || latest.status === 'error') {
+      jobsByKey.delete(key);
+    }
+  }, JOB_RESULT_TTL_MS);
+
+  if (typeof record.cleanupTimer.unref === 'function') {
+    record.cleanupTimer.unref();
+  }
+}
+
+function enqueueJobIfNeeded(rawLink) {
+  const key = normalizeLink(rawLink);
+
+  let record = jobsByKey.get(key);
+  if (record) {
+    return { record, created: false };
+  }
+
+  if (pendingJobCount() >= MAX_UNIQUE_PENDING_JOBS) {
+    return { queueFull: true, key };
+  }
+
+  record = {
+    key,
+    link: key,
+    status: 'queued',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    result: null,
+    error: null,
+    cleanupTimer: null,
+  };
+
+  jobsByKey.set(key, record);
+  queuedJobKeys.push(key);
+
+  const job = generateQueue.then(async () => {
+    const index = queuedJobKeys.indexOf(key);
+    if (index !== -1) {
+      queuedJobKeys.splice(index, 1);
+    }
+
+    runningJobKey = key;
+    record.status = 'running';
+    record.updatedAt = Date.now();
+
+    try {
+      const result = await runGenerateInChild(record.link, 60000, false);
+      record.status = 'done';
+      record.result = result;
+      record.error = null;
+      record.updatedAt = Date.now();
+    } catch (err) {
+      record.status = 'error';
+      record.result = null;
+      record.error = err?.message || String(err);
+      record.updatedAt = Date.now();
+    } finally {
+      if (runningJobKey === key) {
+        runningJobKey = null;
+      }
+      scheduleJobRecordCleanup(key);
+    }
+  });
+
+  record.jobPromise = job;
+  generateQueue = job.catch(() => {});
+
+  return { record, created: true };
+}
 //For parsing json bodies
 app.use(express.json())
 //Serve home page
@@ -156,35 +275,69 @@ function runGenerateInChild(link, timeoutMs, isHomePage = false) {
 
 //Generate maps on demand
 app.post('/', async function (req, res) {
-    console.log(req.body)
-    let response
-    res.status(200)
-    if (req?.body?.link) {
-        if (req?.body?.link == net_square_url) {
-            response = { status: 'ok', area_id: 'default', area_path: 'areas/default.tmx', fresh: false, assets: [] }
-        } else {
+    const rawLink = req?.body?.link;
+    res.status(200);
+
+    if (!rawLink) {
+        return res.json({ status: 'error' });
+    }
+
+    const normalizedLink = normalizeLink(rawLink);
+
+    if (normalizedLink === normalizeLink(net_square_url)) {
+        return res.json({
+            status: 'ok',
+            area_id: 'default',
+            area_path: 'areas/default.tmx',
+            fresh: false,
+            assets: []
+        });
+    }
+
+    try {
+        const { record, queueFull, created } = enqueueJobIfNeeded(normalizedLink);
+
+        if (queueFull) {
+            return res.json({
+                status: 'queue_full',
+                queue_size: pendingJobCount(),
+                max_queue_size: MAX_UNIQUE_PENDING_JOBS
+            });
+        }
+
+        if (created && record.jobPromise) {
             try {
-const link = req.body.link;
-
-const job = generateQueue.then(() =>
-  runGenerateInChild(link, 60000, false)
-);
-
-// keep the queue alive even if this job fails
-generateQueue = job.catch(() => {});
-
-let { area_id, area_path, assets, fresh } = await job;
-response = { status: 'ok', area_id, area_path, fresh, assets };
-            } catch (e) {
-                console.error(e)
-                response = { status: 'error' }
+                await record.jobPromise;
+            } catch (_) {
+                // record.status / record.error are already set by the job runner
             }
         }
-    } else {
-        response = { status: 'error' }
+
+        if (record.status === 'done') {
+            return res.json({
+                status: 'ok',
+                ...record.result
+            });
+        }
+
+        if (record.status === 'error') {
+            return res.json({
+                status: 'error',
+                message: record.error || 'Generation failed'
+            });
+        }
+
+        return res.json({
+            status: 'queued',
+            link: normalizedLink,
+            queue_position: getQueuePositionForKey(record.key),
+            queue_size: pendingJobCount()
+        });
+    } catch (e) {
+        console.error(e);
+        return res.json({ status: 'error' });
     }
-    res.send(JSON.stringify(response))
-})
+});
 
 app.listen(web_server_port, "127.0.0.1")
 console.log(`generation server listening on ${web_server_port}`)
