@@ -3,7 +3,7 @@ const request = require('request');
 const { spawn } = require('child_process');
 
 
-const num_servers = 3
+const num_servers = 2
 const servers = []
 
 for(let i = 0; i < num_servers; i++){
