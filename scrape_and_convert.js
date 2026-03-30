@@ -15,12 +15,12 @@ const minimum_children = 4
 const minimum_text_length = 30
 const maximum_text_length = 500
 const tag_blacklist = ["SCRIPT","STYLE","SVG"]
-const DEFAULT_MAX_LINKS_PER_NODE = 7
+const DEFAULT_MAX_LINKS_PER_NODE = 3
 
 const MAX_LINKS_PER_NODE_BY_DOMAIN = [
     { pattern: /(^|\.)wikipedia\.org$/i, maxLinks: 4 },
     { pattern: /(^|\.)google\.com$/i, maxLinks: 4 },
-    { pattern: /(^|\.)nintendo\.com$/i, maxLinks: 5 },
+    { pattern: /(^|\.)nintendo\.com$/i, maxLinks: 3 },
     { pattern: /(^|\.)reddit\.com$/i, maxLinks: 13 },
 ]
 

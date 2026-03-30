@@ -63,7 +63,7 @@ class NetAreaGenerator {
         this.maximumPathFindingAttempts = 1 //If pathfinding is failing, raising may help
         this.oneUseConnectors = false //Improves look, but increases failure rate
         this.allowLayerGeneration = true //Allow generation to add new layers as required, can be a bit crazy...
-        this.maximumNodeDepth = Infinity // 0 = root only, 1 = root + direct children, etc.
+        this.maximumNodeDepth = 4 // 0 = root only, 1 = root + direct children, etc.
     }
     async generateNetArea(startingNode, isHomePage) {
         this.isHomePage = isHomePage

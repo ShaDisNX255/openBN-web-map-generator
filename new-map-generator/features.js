@@ -126,6 +126,56 @@ class TextFeature extends Feature {
     }
 }
 
+class PageTagFeature extends Feature {
+    static tsxPath = `../assets/shared/objects/placeholder_npc.tsx`
+    static tsxTileCount = 1
+    static npc_assets = [
+        'official-navi-exe4_orange',
+        'male-navi-exe6_teal',
+        'female-navi-exe6_yellow',
+        'prog',
+    ]
+
+    constructor(x, y, z, feature, properties) {
+        super(x, y, z, properties)
+        this.type = 'NPC'
+        this.y_spawn_offset = 16
+        this.x_spawn_offset = 16
+        this.width = 16
+        this.height = 32
+
+        let newProperties = {
+            'Asset Name': PageTagFeature.npc_assets[Math.floor(Math.random() * PageTagFeature.npc_assets.length)],
+            'Dialogue Type': 'website_tag',
+            'Text 1': 'Nice! You tagged this page.',
+        }
+
+        Object.assign(this.properties, newProperties)
+    }
+}
+
+class TagBoardFeature extends Feature {
+    static tsxPath = `../assets/shared/objects/placeholder_npc.tsx`
+    static tsxTileCount = 1
+
+    constructor(x, y, z, feature, properties) {
+        super(x, y, z, properties)
+        this.type = 'NPC'
+        this.y_spawn_offset = 16
+        this.x_spawn_offset = 16
+        this.width = 16
+        this.height = 32
+
+        let newProperties = {
+            'Asset Name': 'prog',
+            'Dialogue Type': 'website_tag_bbs',
+            'Text 1': 'Check the web tag board!',
+        }
+
+        Object.assign(this.properties, newProperties)
+    }
+}
+
 class ImageFeature extends Feature {
     static tsxPath = `../assets/shared/objects/wall_feature.tsx`
     static tsxTileCount = 2
@@ -166,12 +216,12 @@ let featureCategories = {
             className: LinkFeature,
         },
         home_warps: {
-            scrapedName: 'home_warps', //Does not exist really
+            scrapedName: 'home_warps',
             extraRequirements: 0,
             className: HomeWarpFeature,
         },
         back_links: {
-            scrapedName: 'back_links', //Does not exist really
+            scrapedName: 'back_links',
             extraRequirements: 0,
             className: BackLinkFeature,
         },
@@ -179,6 +229,16 @@ let featureCategories = {
             scrapedName: 'text',
             extraRequirements: 0,
             className: TextFeature,
+        },
+        page_tags: {
+            scrapedName: 'page_tags',
+            extraRequirements: 0,
+            className: PageTagFeature,
+        },
+        tag_boards: {
+            scrapedName: 'tag_boards',
+            extraRequirements: 0,
+            className: TagBoardFeature,
         },
     },
     wall_features: {
@@ -197,4 +257,6 @@ module.exports = {
     TextFeature,
     ImageFeature,
     HomeWarpFeature,
+    PageTagFeature,
+    TagBoardFeature,
 }

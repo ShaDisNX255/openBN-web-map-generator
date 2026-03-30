@@ -23,6 +23,73 @@ const songs = [
     'network-space.ogg',
 ]
 
+const COMMON_SECOND_LEVEL_TLDS = new Set(['ac', 'co', 'com', 'edu', 'gov', 'net', 'org'])
+
+const TAG_DOMAIN_LABEL_OVERRIDES = {
+    capcom: 'Capcom',
+    github: 'GitHub',
+    microsoft: 'Microsoft',
+    nintendo: 'Nintendo',
+    reddit: 'Reddit',
+    wikipedia: 'Wikipedia',
+    xbox: 'Xbox',
+    youtube: 'YouTube',
+}
+
+function getTagRootDomain(hostname = '') {
+    const parts = String(hostname || '').toLowerCase().split('.').filter(Boolean)
+    if (parts.length <= 2) {
+        return parts.join('.')
+    }
+
+    const tld = parts[parts.length - 1]
+    const sld = parts[parts.length - 2]
+
+    if (tld.length === 2 && COMMON_SECOND_LEVEL_TLDS.has(sld) && parts.length >= 3) {
+        return parts.slice(-3).join('.')
+    }
+
+    return parts.slice(-2).join('.')
+}
+
+function toTitleWords(value = '') {
+    return String(value)
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (match) => match.toUpperCase())
+}
+
+function getTagDomainLabel(hostname = '') {
+    const rootDomain = getTagRootDomain(hostname)
+    const base = rootDomain.split('.')[0] || String(hostname || '')
+    return TAG_DOMAIN_LABEL_OVERRIDES[base] || toTitleWords(base)
+}
+
+function collectAllNodes(node, out = []) {
+    if (!node) return out
+
+    out.push(node)
+
+    const children = node?.features?.children || []
+    for (const child of children) {
+        collectAllNodes(child, out)
+    }
+
+    return out
+}
+
+function placePageTagOnRandomNode(rootNode, random) {
+    const allNodes = collectAllNodes(rootNode, [])
+    if (allNodes.length === 0) return
+
+    // Prefer anything except the root/entry node when possible
+    const candidates = allNodes.length > 1 ? allNodes.slice(1) : allNodes
+    const chosen = candidates[random.Integer(0, candidates.length - 1)]
+
+    chosen.features = chosen.features || {}
+    chosen.features.page_tags = chosen.features.page_tags || []
+    chosen.features.page_tags.push({})
+}
+
 async function generate(site_url, isHomePage = false) {
     //URL of website to scrape
     console.log('generating',site_url,'...')
@@ -76,14 +143,14 @@ async function generate(site_url, isHomePage = false) {
     let site_properties = {
         Name: hostname,
         URL: site_url,
+        'Tag Domain': getTagRootDomain(hostname),
+        'Tag Domain Label': getTagDomainLabel(hostname),
         'Background Animation': `/server/${server_domain_asset_path}/background.animation`,
         'Background Texture': `/server/${server_domain_asset_path}/background.png`,
     }
 
     let random = new RNG(parseInt(hashed_hostname, 16))
-    site_properties['Song'] = `/server/${replaceBackslashes(
-        path.join(relative_server_music_path, songs[random.Integer(0, songs.length - 1)])
-    )}`
+    site_properties['Song'] = '/server/assets/shared/wwwservertheme.ogg'
 
     let netAreaGenerator = new NetAreaGenerator()
 
@@ -91,6 +158,7 @@ async function generate(site_url, isHomePage = false) {
     const domainDepthRules = [
         { pattern: /(^|\.)wikipedia\.org$/i, depth: 3, label: 'wikipedia' },
         { pattern: /(^|\.)google\.com$/i,    depth: 3, label: 'google' },
+        { pattern: /(^|\.)reddit\.com$/i,    depth: 5, label: 'reddit' },
     ]
 
     for (const rule of domainDepthRules) {
@@ -131,6 +199,10 @@ async function generate(site_url, isHomePage = false) {
 
     console.log(`loading scraped data`)
     LetChildrenKnowAboutTheirParents(scraped_website)
+
+    if (!isHomePage) {
+        placePageTagOnRandomNode(scraped_website, random)
+    }
 
     console.log(`generating map...`)
     await netAreaGenerator.generateNetArea(scraped_website, isHomePage)

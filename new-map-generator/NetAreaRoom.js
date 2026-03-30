@@ -1,4 +1,4 @@
-let { featureCategories, LinkFeature, TextFeature, ImageFeature, HomeWarpFeature } = require('./features.js')
+let { featureCategories } = require('./features.js')
 let GenerateForRequirements = require('./NetPrefabGenerator')
 class NetAreaRoom {
     constructor(node, netAreaGenerator) {
@@ -15,6 +15,8 @@ class NetAreaRoom {
             links: {},
             back_links: {},
             text: {},
+            page_tags: {},
+            tag_boards: {},
             images: {},
             home_warps: {},
         }
@@ -73,6 +75,21 @@ class NetAreaRoom {
         }
         return { prefabRequirements, totalRequired }
     }
+    pickGroundPlacement(featureName) {
+        let positions = this.prefab.features.ground_features
+        let index = this.nextGroundFeatureIndex
+
+        if ((featureName === 'page_tags' || featureName === 'tag_boards') && index < positions.length) {
+            let swapIndex = this.netAreaGenerator.RNG.Integer(index, positions.length - 1)
+            let tmp = positions[index]
+            positions[index] = positions[swapIndex]
+            positions[swapIndex] = tmp
+        }
+
+        let position = positions[index]
+        this.nextGroundFeatureIndex++
+        return position
+    }
     placeFeatures() {
         for (let category in featureCategories) {
             //Loop through each feature category
@@ -96,9 +113,7 @@ class NetAreaRoom {
                 for (let n_featureKey in nodeFeaturesOfType) {
                     let newPlacementPosition
                     if (category == 'ground_features') {
-                        newPlacementPosition = this.prefab.features[category][this.nextGroundFeatureIndex]
-                        this.nextGroundFeatureIndex++
-                        //console.log('placing a ground feature on location',this.nextGroundFeatureIndex,'/', this.prefab.features[category].length)
+                        newPlacementPosition = this.pickGroundPlacement(featureName)
                     }
                     if (category == 'wall_features') {
                         newPlacementPosition = this.prefab.features[category][this.nextWallFeatureIndex]
@@ -142,16 +157,18 @@ class NetAreaRoom {
     }
     pickSmallestPrefab(node) {
         if (this.node.isFirstNode) {
+            if (!this.node.features) {
+                this.node.features = {}
+            }
+
             if (this.netAreaGenerator.isHomePage) {
                 this.totalRequired.home_warps = 1
-                this.totalRequired.ground_features += 1
+                this.totalRequired.ground_features += 2
                 this.node.features.home_warps = [{}]
+                this.node.features.tag_boards = [{}]
             } else {
                 this.totalRequired.back_links = 1
                 this.totalRequired.ground_features += 1
-                if(!this.node.features){
-                    this.node.features = {}
-                }
                 this.node.features.back_links = [{}]
             }
         }
