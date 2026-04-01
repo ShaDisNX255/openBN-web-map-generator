@@ -22,6 +22,13 @@ local TAG_DOMAIN_LABEL_OVERRIDES = {
     youtube = "YouTube",
 }
 
+local TAG_DOMAIN_ALIASES = {
+    ["capcom"] = "capcom.com",
+    ["capcom.com"] = "capcom.com",
+    ["capcomusa"] = "capcom.com",
+    ["capcomusa.com"] = "capcom.com",
+}
+
 local COMMON_SECOND_LEVEL_TLDS = {
     ac = true, co = true, com = true, edu = true, gov = true, net = true, org = true,
 }
@@ -119,6 +126,17 @@ local function _registrable_host(host)
     return table.concat({ sld, tld }, ".")
 end
 
+local function _normalize_tag_domain(domain, label)
+    local raw_domain = tostring(domain or ""):lower()
+    local normalized = TAG_DOMAIN_ALIASES[raw_domain] or raw_domain
+
+    if normalized == "capcom.com" then
+        return "capcom.com", "Capcom"
+    end
+
+    return domain, label
+end
+
 local function _domain_info_for_area(area_id)
     local ok_domain, tag_domain = pcall(Net.get_area_custom_property, area_id, "Tag Domain")
     local ok_label, tag_label = pcall(Net.get_area_custom_property, area_id, "Tag Domain Label")
@@ -141,7 +159,7 @@ local function _domain_info_for_area(area_id)
         local base = tostring(domain):match("^([^.]+)") or tostring(domain)
         label = TAG_DOMAIN_LABEL_OVERRIDES[base] or _title_words(base)
     end
-
+    domain, label = _normalize_tag_domain(domain, label)
     return domain, label, raw
 end
 
@@ -155,6 +173,132 @@ end
 
 local _archive_tag_history
 
+local function _rebuild_domains_from_pages(store)
+    local rebuilt = {}
+
+    for _, page in pairs(store.pages or {}) do
+        local owner_key = page.owner_key
+        if owner_key and owner_key ~= "" then
+            local domain_key = tostring(page.domain_key or "")
+            local domain_label = tostring(page.domain_label or domain_key)
+
+            local bucket = rebuilt[domain_key]
+            if not bucket then
+                bucket = {
+                    label = domain_label,
+                    owners = {},
+                }
+                rebuilt[domain_key] = bucket
+            end
+
+            bucket.label = domain_label
+
+            local row = bucket.owners[owner_key]
+            if not row then
+                row = {
+                    name = page.owner_name or "Unknown",
+                    count = 0,
+                }
+                bucket.owners[owner_key] = row
+            end
+
+            row.name = page.owner_name or row.name or "Unknown"
+            row.count = (tonumber(row.count or 0) or 0) + 1
+        end
+    end
+
+    store.domains = rebuilt
+end
+
+local function _merge_season_wins(dst, src)
+    dst = dst or {}
+    for owner_key, row in pairs(src or {}) do
+        local existing = dst[owner_key]
+        if not existing then
+            dst[owner_key] = {
+                name = row.name or "Unknown",
+                wins = tonumber(row.wins or 0) or 0,
+            }
+        else
+            existing.name = row.name or existing.name or "Unknown"
+            existing.wins = (tonumber(existing.wins or 0) or 0) + (tonumber(row.wins or 0) or 0)
+        end
+    end
+    return dst
+end
+
+local function _pick_better_record(a, b)
+    if not a then return b end
+    if not b then return a end
+
+    local ac = tonumber(a.count or 0) or 0
+    local bc = tonumber(b.count or 0) or 0
+    if bc > ac then
+        return b
+    end
+    return a
+end
+
+local function _pick_newer_last_winner(a, b)
+    if not a then return b end
+    if not b then return a end
+
+    local at = tonumber(a.at or 0) or 0
+    local bt = tonumber(b.at or 0) or 0
+    if bt > at then
+        return b
+    end
+    return a
+end
+
+local function _migrate_tag_domain_aliases(store)
+    local changed = false
+
+    for _, page in pairs(store.pages or {}) do
+        local old_key = tostring(page.domain_key or "")
+        local old_label = tostring(page.domain_label or "")
+        local new_key, new_label = _normalize_tag_domain(old_key, old_label)
+
+        if new_key ~= old_key or new_label ~= old_label then
+            page.domain_key = new_key
+            page.domain_label = new_label
+            changed = true
+        end
+    end
+
+    if changed then
+        _rebuild_domains_from_pages(store)
+    end
+
+    local history_domains = (((store or {}).history or {}).domains)
+    if history_domains then
+        local src = history_domains["capcomusa.com"] or history_domains["capcomusa"]
+        if src then
+            local dst = history_domains["capcom.com"]
+            if not dst then
+                dst = {
+                    label = "Capcom",
+                    season_wins = {},
+                    last_winner = nil,
+                    record_holder = nil,
+                }
+                history_domains["capcom.com"] = dst
+            end
+
+            dst.label = "Capcom"
+            dst.season_wins = _merge_season_wins(dst.season_wins, src.season_wins)
+            dst.last_winner = _pick_newer_last_winner(dst.last_winner, src.last_winner)
+            dst.record_holder = _pick_better_record(dst.record_holder, src.record_holder)
+
+            history_domains["capcomusa.com"] = nil
+            history_domains["capcomusa"] = nil
+            changed = true
+        end
+    end
+
+    return changed
+end
+
 local function _get_tag_store()
     local mem = ezmemory.get_area_memory(TAG_MEM_AREA_ID) or {}
     mem[TAG_MEM_KEY] = mem[TAG_MEM_KEY] or {}
@@ -164,6 +308,7 @@ local function _get_tag_store()
     store.domains = store.domains or {}
     store.history = store.history or { domains = {} }
 
+    local migrated = _migrate_tag_domain_aliases(store)
     local generation_id = _current_tag_generation_id()
 
     if store.generation_id ~= generation_id then
@@ -178,6 +323,10 @@ local function _get_tag_store()
             history = store.history or { domains = {} },
         }
         store = mem[TAG_MEM_KEY]
+        ezmemory.save_area_memory(TAG_MEM_AREA_ID)
+    end
+
+    if migrated then
         ezmemory.save_area_memory(TAG_MEM_AREA_ID)
     end
 

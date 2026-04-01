@@ -64,21 +64,22 @@ function getTagDomainLabel(hostname = '') {
     return TAG_DOMAIN_LABEL_OVERRIDES[base] || toTitleWords(base)
 }
 
-function collectAllNodes(node, out = []) {
+function collectAllNodesUpToDepth(node, maxDepth, depth = 0, out = []) {
     if (!node) return out
+    if (depth > maxDepth) return out
 
     out.push(node)
 
     const children = node?.features?.children || []
     for (const child of children) {
-        collectAllNodes(child, out)
+        collectAllNodesUpToDepth(child, maxDepth, depth + 1, out)
     }
 
     return out
 }
 
-function placePageTagOnRandomNode(rootNode, random) {
-    const allNodes = collectAllNodes(rootNode, [])
+function placePageTagOnRandomNode(rootNode, random, maxDepth = 4) {
+    const allNodes = collectAllNodesUpToDepth(rootNode, maxDepth, 0, [])
     if (allNodes.length === 0) return
 
     // Prefer anything except the root/entry node when possible
@@ -159,6 +160,7 @@ async function generate(site_url, isHomePage = false) {
         { pattern: /(^|\.)wikipedia\.org$/i, depth: 3, label: 'wikipedia' },
         { pattern: /(^|\.)google\.com$/i,    depth: 3, label: 'google' },
         { pattern: /(^|\.)reddit\.com$/i,    depth: 5, label: 'reddit' },
+        { pattern: /(^|\.)amogus\.org$/i,    depth: 5, label: 'amogus' },
     ]
 
     for (const rule of domainDepthRules) {
@@ -201,7 +203,7 @@ async function generate(site_url, isHomePage = false) {
     LetChildrenKnowAboutTheirParents(scraped_website)
 
     if (!isHomePage) {
-        placePageTagOnRandomNode(scraped_website, random)
+        placePageTagOnRandomNode(scraped_website, random, 4)
     }
 
     console.log(`generating map...`)

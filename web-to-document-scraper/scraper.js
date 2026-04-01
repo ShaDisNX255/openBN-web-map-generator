@@ -127,6 +127,19 @@ try {
 
       await page.waitForTimeout(1500);
     }
+  } else if (/(^|\.)wiki\.n1gp\.net$/i.test(host)) {
+    await page.waitForFunction(() => {
+      const text = document.body?.innerText || '';
+      return !/Verification successful\. Waiting for wiki\.n1gp\.net to respond/i.test(text);
+    }, { timeout: 15000 }).catch(() => {});
+
+    await page.waitForTimeout(15000);
+
+    await page.waitForFunction(() => {
+      const text = document.body?.innerText || '';
+      return text.trim().length > 0 &&
+             !/Verification successful\. Waiting for wiki\.n1gp\.net to respond/i.test(text);
+    }, { timeout: 15000 }).catch(() => {});
   }
 } catch (_) {}
     //console.log('evaluating script')
