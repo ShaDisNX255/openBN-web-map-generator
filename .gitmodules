@@ -3,7 +3,8 @@
 	url = https://github.com/ArthurCose/Scriptable-OpenNetBattle-Server
 [submodule "onb-server/scripts/ezlibs-scripts"]
 	path = onb-server/scripts/ezlibs-scripts
-	url = https://github.com/Keristero/ezlibs-scripts
+	url = https://github.com/ShaDisNX255/ezlibs-scripts.git
+	branch = wwwserv
 [submodule "onb-server/assets/ezlibs-assets"]
 	path = onb-server/assets/ezlibs-assets
 	url = https://github.com/ShaDisNX255/ezlibs-assets.git
