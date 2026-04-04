@@ -6,4 +6,5 @@
 	url = https://github.com/Keristero/ezlibs-scripts
 [submodule "onb-server/assets/ezlibs-assets"]
 	path = onb-server/assets/ezlibs-assets
-	url = https://github.com/Keristero/ezlibs-assets.git
+	url = https://github.com/ShaDisNX255/ezlibs-assets.git
+	branch = wwwserv
