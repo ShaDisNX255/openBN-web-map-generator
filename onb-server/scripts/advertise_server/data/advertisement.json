@@ -6,7 +6,7 @@
         {
             "unique_server_id":"www_server",
             "name":"WWW Server",
-            "description":"Experimental world wide web exploration server, maps are generated from real website html",
+            "description":"Experimental world wide web exploration server, maps are generated from real website html! Be patient when logging in for the first time, it's downloading assets.",
             "tags":["demo"],
             "address":"64.23.226.84:8765",
             "data":"",

@@ -60,7 +60,7 @@ async function scraper(url){
     process.once('SIGINT', onTerminate);
 
     try {
-        const useProxy = url.includes('reddit.com') || url.includes('x.com') || url.includes('twitter.com') || url.includes('gamejolt.com');
+        const useProxy = url.includes('reddit.com') || url.includes('mmbnchronox.com') || url.includes('therockmanexezone.com') || url.includes('gamejolt.com');
         if (useProxy) console.log(`[scraper] routing ${url} through home proxy`);
 
         browser = await puppeteer.launch({
@@ -80,6 +80,16 @@ async function scraper(url){
         await page.setDefaultNavigationTimeout(20000);
         await page.setDefaultTimeout(20000);
 
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        );
+
+        await page.setExtraHTTPHeaders({
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Upgrade-Insecure-Requests": "1"
+        });
+
         await page.setRequestInterception(true);
         page.on('request', (request) => {
             const type = request.resourceType();
@@ -92,8 +102,14 @@ async function scraper(url){
     //console.log('enabling js')
     await page.setJavaScriptEnabled(true);
     //console.log('going to url')
+let response;
 try {
-  await page.goto(url, goto_page_options);
+  response = await page.goto(url, goto_page_options);
+  if (response) {
+    console.log(`[scraper] status=${response.status()} url=${response.url()}`);
+  } else {
+    console.log(`[scraper] no main response object for ${url}`);
+  }
 } catch (err) {
   if (err && err.name === "TimeoutError") {
     console.log(`[scraper] timeout loading ${url}, continuing with partial page`);
@@ -101,6 +117,10 @@ try {
     throw err;
   }
 }
+
+try {
+  console.log(`[scraper] title=${await page.title()}`);
+} catch (_) {}
 
 try {
   const parsedUrl = new URL(url);

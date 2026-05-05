@@ -10,7 +10,7 @@ const path = require('path');
 
 const app = express()
 let generateQueue = Promise.resolve();
-const MAX_UNIQUE_PENDING_JOBS = 300;
+const MAX_UNIQUE_PENDING_JOBS = 400;
 const JOB_RESULT_TTL_MS = 10 * 60 * 1000;
 
 const jobsByKey = new Map();
