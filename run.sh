@@ -10,9 +10,34 @@ ENTRY="${ENTRY:-$DIR/server.js}"
 LOG="${LOG:-$DIR/logs.txt}"
 PIDFILE="${PIDFILE:-$DIR/server.pid}"
 
+ONB_DIR="${ONB_DIR:-$DIR/onb-server}"
+AREAS_DIR="${AREAS_DIR:-$ONB_DIR/areas}"
+GENERATED_DIR="${GENERATED_DIR:-$ONB_DIR/assets/generated}"
+TRAINSTATION_SRC="${TRAINSTATION_SRC:-$ONB_DIR/assets/trainstation.tmx}"
+TRAINSTATION_DEST="${TRAINSTATION_DEST:-$AREAS_DIR/trainstation.tmx}"
+
 have_pid() {
   local p="${1:-}"
   [[ -n "$p" ]] && kill -0 "$p" 2>/dev/null
+}
+
+reset_generated_content() {
+  if [[ ! -f "$TRAINSTATION_SRC" ]]; then
+    echo "Missing train station template: $TRAINSTATION_SRC" >&2
+    exit 1
+  fi
+
+  echo "Resetting generated ONB content..."
+
+  rm -rf "$AREAS_DIR"
+  rm -rf "$GENERATED_DIR"
+
+  mkdir -p "$AREAS_DIR"
+  mkdir -p "$GENERATED_DIR"
+
+  cp "$TRAINSTATION_SRC" "$TRAINSTATION_DEST"
+
+  echo "Copied trainstation.tmx → $TRAINSTATION_DEST"
 }
 
 start_server() {
@@ -20,6 +45,8 @@ start_server() {
     echo "Node server already running (pid $(cat "$PIDFILE"))."
     return 0
   fi
+
+  reset_generated_content
 
   : > "$LOG"
 

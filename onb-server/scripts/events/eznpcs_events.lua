@@ -3,6 +3,7 @@ local eznpcs = require('scripts/ezlibs-scripts/eznpcs/eznpcs')
 local ezmemory = require('scripts/ezlibs-scripts/ezmemory')
 local helpers = require('scripts/ezlibs-scripts/helpers')
 local ezencounters = require('scripts/ezlibs-scripts/ezencounters/main')
+local eztriggers = require("scripts/ezlibs-scripts/eztriggers")
 
 local TAG_MEM_AREA_ID = "default"
 local TAG_MEM_KEY = "website_tags_v1"
@@ -49,6 +50,47 @@ local function can_open_return_prompt(player_id)
 
     return true
 end
+
+local website_navigator_warp_locks = {}
+
+local function setup_website_navigator_warps()
+  local areas = Net.list_areas()
+
+  for _, area_id in next, areas do
+    local objects = Net.list_objects(area_id)
+
+    for _, object_id in next, objects do
+      local object = Net.get_object_by_id(area_id, object_id)
+
+      if object and object.type == "Website Navigator Warp" then
+        local radius = tonumber(object.custom_properties["Activation Radius"] or 1) or 1
+        local diameter = radius * 2
+
+        local emitter = eztriggers.add_radius_trigger(area_id, object, diameter, diameter, 0, 0)
+
+        if emitter then
+          emitter:on("entered", function(event)
+            local player_id = event.player_id
+
+            if website_navigator_warp_locks[player_id] then
+              return
+            end
+
+            website_navigator_warp_locks[player_id] = true
+
+            async(function()
+              ezwarps.handle_player_request(player_id, "return_to_index")
+              await(Async.sleep(0.5))
+              website_navigator_warp_locks[player_id] = nil
+            end)
+          end)
+        end
+      end
+    end
+  end
+end
+
+setup_website_navigator_warps()
 
 local function open_return_prompt(player_id)
     if not can_open_return_prompt(player_id) then

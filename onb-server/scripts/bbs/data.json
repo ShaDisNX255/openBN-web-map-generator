@@ -1,0 +1,15 @@
+{
+  "WebBrowserBBS": {
+    "next_id": 2,
+    "posts": [
+      {
+        "author": "Test1",
+        "body": "Test :D",
+        "id": "1",
+        "pin": false,
+        "time": 1778354073,
+        "title": "Test :D"
+      }
+    ]
+  }
+}
