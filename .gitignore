@@ -10,3 +10,4 @@ Scriptable-OpenNetBattle-Server
 server.pid
 onb-server/server.pid
 onb-server/memory*
+onb-server/scripts/bbs*
