@@ -11,3 +11,4 @@ server.pid
 onb-server/server.pid
 onb-server/memory*
 onb-server/scripts/bbs*
+onb-server/scripts/bbs/data.json

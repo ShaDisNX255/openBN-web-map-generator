@@ -1,6 +1,6 @@
 {
     "listservers":{
-        "main":"http://onb.keristero.com/server_list/"
+        "main": "http://127.0.0.1:5055/server_list/"
     },
     "advertisements":[
         {
@@ -8,11 +8,12 @@
             "name":"WWW Server",
             "description":"Experimental world wide web exploration server, maps are generated from real website html! Be patient when logging in for the first time, it's downloading assets.",
             "tags":["demo"],
-            "address":"64.23.226.84:8765",
+            "address":"64.23.226.84:8766",
             "data":"",
             "icon":"www.png",
             "color":"rgb(50,200,50)",
-            "advertise_map":false
+            "advertise_map":true,
+            "default_area_id":"default"
         }
     ]
 }
