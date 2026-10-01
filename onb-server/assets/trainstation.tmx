@@ -523,7 +523,7 @@
     <property name="3 Area" value="96.60.137.203:8767,UnderSquare,Undersquare Train"/>
     <property name="3 Name" value="Undernet Server"/>
     <property name="3 Type" value="Server"/>
-    <property name="4 Area" value="143.198.61.124:3000,acdc1,MainTrain"/>
+    <property name="4 Area" value="85.215.186.121:3333,acdc1,MainTrain"/>
     <property name="4 Name" value="BN3 ACDC Station"/>
     <property name="4 Type" value="Server"/>
     <property name="5 Area" value="96.60.137.203:8768,default,orange line"/>
